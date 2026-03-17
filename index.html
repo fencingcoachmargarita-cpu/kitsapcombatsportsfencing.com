@@ -31,7 +31,7 @@
         <button id="menu-toggle" aria-label="Toggle Menu">&#9776;</button>
         <nav class="nav" id="nav-menu">
             <a href="#about">About</a>
-            <a href="#programs">Programs</a>
+            <a href="#programs">Schedule</a>
             <a href="#location">Location</a>
             <a href="#contact" class="btn-primary">Contact</a>
         </nav>
@@ -76,38 +76,32 @@
         <section id="programs" class="programs-section">
             <div class="container">
                 <h2 class="section-title">Class Schedule</h2>
-                <div class="schedule-grid">
-                    <div class="schedule-card">
-                        <div class="day">Wednesday</div>
-                        <div class="time">4:00 PM - 5:00 PM</div>
-                        <div class="details">Fencing Class</div>
+                <div class="calendars">
+                    <div class="calendar-wrapper">
+                        <h3 class="calendar-month-label" id="month-label-0"></h3>
+                        <div class="calendar-grid" id="cal-grid-0"></div>
                     </div>
-                    <div class="schedule-card">
-                        <div class="day">Friday</div>
-                        <div class="time">4:00 PM - 5:00 PM</div>
-                        <div class="details">Fencing Class</div>
+                    <div class="calendar-wrapper">
+                        <h3 class="calendar-month-label" id="month-label-1"></h3>
+                        <div class="calendar-grid" id="cal-grid-1"></div>
                     </div>
-                    <div class="schedule-card">
-                        <div class="day">Saturday</div>
-                        <div class="time">9:00 AM - 10:00 AM</div>
-                        <div class="details">Fencing Class</div>
-                    </div>
-                    <div class="schedule-card">
-                        <div class="day">Saturday</div>
-                        <div class="time">10:00 AM - 11:00 AM</div>
-                        <div class="details">Free Fencing</div>
-                    </div>
-                    <div class="schedule-card">
-                        <div class="day">Sunday</div>
-                        <div class="time">1:00 PM - 3:00 PM</div>
-                        <div class="details">Free Fencing</div>
-                    </div>
-
                 </div>
+                <h3 class="list-heading" id="list-heading">Upcoming Classes</h3>
+                <div class="class-list" id="class-list"></div>
             </div>
         </section>
 
-
+        <section id="updates" class="updates-section">
+            <div class="updates-container">
+                <h2 class="section-title">Stay Updated</h2>
+                <p class="updates-description">Get notified about schedule changes and cancellations.</p>
+                <!-- REPLACE action URL with your Mailchimp form action URL -->
+                <form class="signup-form" id="signup-form" action="MAILCHIMP_FORM_URL" method="post" target="_blank">
+                    <input type="email" name="EMAIL" placeholder="Enter your email" required>
+                    <button type="submit" class="btn-primary">Subscribe</button>
+                </form>
+            </div>
+        </section>
 
         <section id="location" class="location-section">
             <div class="location-container">
@@ -167,6 +161,182 @@
                 navMenu.classList.remove('active');
             });
         });
+
+        // --- Monthly Calendar from Google Sheets ---
+        (function() {
+            // REPLACE with your Google Sheet ID (the long string between /d/ and /edit in the sheet URL)
+            var SHEET_ID = '1-6Dy-R1nltqkB6tT82B8J8EtErQAdh7Q1w7hQ8X0HHc';
+
+            var MONTHS = ['January','February','March','April','May','June',
+                          'July','August','September','October','November','December'];
+            var DAYS_S = ['Su','Mo','Tu','We','Th','Fr','Sa'];
+            var DAYS_F = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
+            var now = new Date();
+            var allClasses = [];
+
+            function esc(str) {
+                var el = document.createElement('span');
+                el.textContent = str;
+                return el.innerHTML;
+            }
+
+            function parseDate(str) {
+                var parts = str.split('/');
+                if (parts.length === 3) {
+                    var y = parseInt(parts[2], 10);
+                    if (y < 100) y += 2000;
+                    return new Date(y, parseInt(parts[0], 10) - 1, parseInt(parts[1], 10));
+                }
+                var d = new Date(str);
+                return isNaN(d.getTime()) ? null : d;
+            }
+
+            function parseCSV(csv) {
+                return csv.trim().split('\n').slice(1).map(function(line) {
+                    var fields = [], cur = '', q = false;
+                    for (var i = 0; i < line.length; i++) {
+                        var ch = line[i];
+                        if (ch === '"') q = !q;
+                        else if (ch === ',' && !q) { fields.push(cur.trim()); cur = ''; }
+                        else cur += ch;
+                    }
+                    fields.push(cur.trim());
+                    return fields;
+                }).filter(function(f) { return f[0]; }).map(function(f) {
+                    var d = parseDate(f[0]);
+                    if (!d) return null;
+                    return { date: d, time: f[1] || '', name: f[2] || '',
+                             cancelled: (f[3] || '').toUpperCase().indexOf('CANCEL') >= 0 };
+                }).filter(Boolean);
+            }
+
+            function generateFallback() {
+                var classes = [];
+                for (var mo = 0; mo < 2; mo++) {
+                    var m = now.getMonth() + mo;
+                    var y = now.getFullYear();
+                    if (m > 11) { m -= 12; y++; }
+                    var dim = new Date(y, m + 1, 0).getDate();
+                    for (var d = 1; d <= dim; d++) {
+                        var dt = new Date(y, m, d), dow = dt.getDay();
+                        if (dow === 3) classes.push({ date: new Date(y,m,d), time: '4:00 PM - 5:00 PM', name: 'Fencing Class', cancelled: false });
+                        if (dow === 5) classes.push({ date: new Date(y,m,d), time: '4:00 PM - 5:00 PM', name: 'Fencing Class', cancelled: false });
+                        if (dow === 6) {
+                            classes.push({ date: new Date(y,m,d), time: '9:00 AM - 10:00 AM', name: 'Fencing Class', cancelled: false });
+                            classes.push({ date: new Date(y,m,d), time: '10:00 AM - 11:00 AM', name: 'Free Fencing', cancelled: false });
+                        }
+                        if (dow === 0) classes.push({ date: new Date(y,m,d), time: '1:00 PM - 3:00 PM', name: 'Free Fencing', cancelled: false });
+                    }
+                }
+                return classes;
+            }
+
+            function renderMonth(idx, month, year) {
+                document.getElementById('month-label-' + idx).textContent = MONTHS[month] + ' ' + year;
+                var grid = document.getElementById('cal-grid-' + idx);
+                var firstDay = new Date(year, month, 1).getDay();
+                var dim = new Date(year, month + 1, 0).getDate();
+                var today = new Date();
+
+                var mc = {};
+                allClasses.filter(function(c) {
+                    return c.date.getMonth() === month && c.date.getFullYear() === year;
+                }).forEach(function(c) {
+                    var k = c.date.getDate();
+                    if (!mc[k]) mc[k] = [];
+                    mc[k].push(c);
+                });
+
+                var h = '';
+                DAYS_S.forEach(function(d) { h += '<div class="cal-hd">' + d + '</div>'; });
+                for (var i = 0; i < firstDay; i++) h += '<div class="cal-d empty"></div>';
+                for (var d = 1; d <= dim; d++) {
+                    var dc = mc[d] || [];
+                    var hasA = dc.some(function(c) { return !c.cancelled; });
+                    var hasC = dc.some(function(c) { return c.cancelled; });
+                    var isT = today.getDate() === d && today.getMonth() === month && today.getFullYear() === year;
+                    var cls = 'cal-d' + (dc.length ? ' has' : '') + (isT ? ' today' : '');
+                    var dateKey = month + '-' + d + '-' + year;
+                    h += '<div class="' + cls + '"' + (dc.length ? ' data-datekey="' + dateKey + '"' : '') + '><span class="cal-n">' + d + '</span>';
+                    if (dc.length) {
+                        h += '<div class="cal-dots">';
+                        if (hasA) h += '<span class="dot"></span>';
+                        if (hasC) h += '<span class="dot red"></span>';
+                        h += '</div>';
+                    }
+                    h += '</div>';
+                }
+                grid.innerHTML = h;
+
+                // Click handlers for days with classes
+                grid.querySelectorAll('.cal-d.has').forEach(function(cell) {
+                    cell.addEventListener('click', function() {
+                        var key = cell.getAttribute('data-datekey');
+                        var targets = document.querySelectorAll('.cl-item[data-datekey="' + key + '"]');
+                        if (!targets.length) return;
+                        // Clear previous highlights
+                        document.querySelectorAll('.cl-item.highlight').forEach(function(el) {
+                            el.classList.remove('highlight');
+                        });
+                        targets[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        targets.forEach(function(el) {
+                            el.classList.add('highlight');
+                        });
+                    });
+                });
+            }
+
+            function renderList() {
+                var m0 = now.getMonth(), y0 = now.getFullYear();
+                var m1 = m0 + 1, y1 = y0;
+                if (m1 > 11) { m1 = 0; y1++; }
+
+                var items = allClasses.filter(function(c) {
+                    return (c.date.getMonth() === m0 && c.date.getFullYear() === y0)
+                        || (c.date.getMonth() === m1 && c.date.getFullYear() === y1);
+                }).sort(function(a, b) {
+                    return a.date - b.date || a.time.localeCompare(b.time);
+                });
+
+                var list = document.getElementById('class-list');
+                if (!items.length) {
+                    list.innerHTML = '<p class="no-classes">No classes scheduled.</p>';
+                    return;
+                }
+                list.innerHTML = items.map(function(c) {
+                    var ds = DAYS_F[c.date.getDay()] + ', ' + MONTHS[c.date.getMonth()] + ' ' + c.date.getDate();
+                    var cl = 'cl-item' + (c.cancelled ? ' cancelled' : '');
+                    var dateKey = c.date.getMonth() + '-' + c.date.getDate() + '-' + c.date.getFullYear();
+                    return '<div class="' + cl + '" data-datekey="' + dateKey + '">'
+                        + '<div class="cl-date">' + esc(ds) + '</div>'
+                        + '<div class="cl-time">' + esc(c.time) + '</div>'
+                        + '<div class="cl-name">' + esc(c.name) + '</div>'
+                        + (c.cancelled ? '<span class="cl-badge">CANCELLED</span>' : '')
+                        + '</div>';
+                }).join('');
+            }
+
+            function render() {
+                var m0 = now.getMonth(), y0 = now.getFullYear();
+                var m1 = m0 + 1, y1 = y0;
+                if (m1 > 11) { m1 = 0; y1++; }
+                renderMonth(0, m0, y0);
+                renderMonth(1, m1, y1);
+                renderList();
+            }
+
+            fetch('https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:csv')
+                .then(function(r) { if (!r.ok) throw 0; return r.text(); })
+                .then(function(csv) {
+                    allClasses = parseCSV(csv);
+                    if (!allClasses.length) allClasses = generateFallback();
+                    render();
+                }).catch(function() {
+                    allClasses = generateFallback();
+                    render();
+                });
+        })();
     </script>
 </body>
 
