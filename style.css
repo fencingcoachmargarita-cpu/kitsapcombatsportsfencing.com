@@ -443,6 +443,10 @@ a {
     margin-bottom: 2rem;
 }
 
+.contact-container p.contact-name {
+    font-size: 2rem;
+}
+
 .email-link {
     font-size: 1.5rem;
     color: var(--text-color);
